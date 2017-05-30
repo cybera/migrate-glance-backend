@@ -95,21 +95,23 @@ def migrate_image(glanceclient, image_id):
     # Delete the file based location for the original image and
     # set the location to be the new one
     LOG.info("Deleting original image location and setting the new one...")
-    glanceclient.images.delete_locations(image.id,
-                                         set([image.locations[0]["url"]]))
     glanceclient.images.add_location(image.id,
                                      new_image.locations[0]["url"], {})
+    glanceclient.images.delete_locations(image.id,
+                                         set([image.locations[0]["url"]]))
 
     # Protect both images to prevent them from being deleted/orphaned
-    LOG.info("Protecting both images to prevent them from being deleted...")
-    kwargs = {}
-    kwargs['protected'] = True
-    glanceclient.images.update(image.id, **kwargs)
-    glanceclient.images.update(new_image.id, **kwargs)
+    #LOG.info("Protecting both images to prevent them from being deleted...")
+    #kwargs = {}
+    #kwargs['protected'] = True
+    #glanceclient.images.update(image.id, **kwargs)
+    #glanceclient.images.update(new_image.id, **kwargs)
 
     # Delete the local temporary original image file once everything is done
     LOG.info("Deleting temporary image file at {0}".format(file_path))
     os.remove(file_path)
+
+    LOG.info("Successfully migrated {0} to {1}".format(image.id, new_image.id))
 
     return
 
@@ -165,7 +167,8 @@ def main(opts):
 
     LOG.info("Found {0} image(s).".format(str(len(image_list))))
     for image in image_list:
-        migrate_image(glanceclient, image['id'])
+        if image['id'].startswith('1'):
+            migrate_image(glanceclient, image['id'])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
