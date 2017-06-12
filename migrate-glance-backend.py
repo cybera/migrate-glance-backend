@@ -53,10 +53,21 @@ def migrate_image(glanceclient, image_id):
     image_description = "{0} ({1})".format(image.name, image.id)
 
     # Download the image locally
+    if image.status != "active":
+        LOG.info("Image not active: {0}".format(image.id))
+        return
+    if image.locations[0]["url"].startswith('swift'):
+        LOG.info("Already migrated {0}".format(image.id))
+        return
     file_path = TMPDIR + image.id
     LOG.info("Downloading {0} to {1}".format(image_description, file_path))
     data = glanceclient.images.data(image.id)
-    gc_utils.save_image(data, file_path)
+    try:
+        gc_utils.save_image(data, file_path)
+    except Exception as e:
+        LOG.info("Unable to download {0}: {1}".format(image.id, e))
+        os.remove(file_path)
+        return
 
     # Save the properties we want to keep from the current image
     kwargs = {}
@@ -64,7 +75,9 @@ def migrate_image(glanceclient, image_id):
     # https://bugs.launchpad.net/glance/+bug/1420008
     # Otherwise, we'd put "owner" in copy_attrs
     # properties is the custom properties that you have for your images
-    properties = ['architecture', 'build_version']
+    properties = ['architecture', 'build_version', 'image_type', 'hw_disk_bus',
+                  'hw_disk_bus_model', 'hw_scsi_model', 'instance_uuid',
+                  'base_image_ref', 'os_type']
     copy_attrs = ['name', 'container_format', 'disk_format', 'min_disk',
                   'min_ram', 'visibility'] + properties
     for attr in copy_attrs:
@@ -167,8 +180,9 @@ def main(opts):
 
     LOG.info("Found {0} image(s).".format(str(len(image_list))))
     for image in image_list:
-        if image['id'].startswith('1'):
-            migrate_image(glanceclient, image['id'])
+        migrate_image(glanceclient, image['id'])
+        #if image['id'].startswith('0'):
+            #migrate_image(glanceclient, image['id'])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
